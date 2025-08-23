@@ -12,9 +12,7 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Models & data
-*.pkl
-*.joblib
+# Data
 data/*.zip
 
 # Streamlit
