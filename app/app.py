@@ -20,12 +20,17 @@ st.set_page_config(page_title="🍷 Wine Quality Predictor", layout="wide")
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 MODELS_DIR = PROJECT_ROOT / "models"
-REPORTS_DIR = PROJECT_ROOT / "reports"   # <- plural
 
-MODEL_PATH = MODELS_DIR / "model.pkl"
-FEATS_PATH = MODELS_DIR / "feature_names.json"
-METRICS_PATH = MODELS_DIR / "metrics.json"
-CLASS_MAP_PATH = MODELS_DIR / "class_map.json"
+# Prefer plural "reports/", but gracefully fall back to legacy "report/"
+REPORTS_DIR = PROJECT_ROOT / "reports"
+LEGACY_REPORT_DIR = PROJECT_ROOT / "report"
+if not REPORTS_DIR.exists() and LEGACY_REPORT_DIR.exists():
+    REPORTS_DIR = LEGACY_REPORT_DIR  # fallback so old repos still work
+
+MODEL_PATH      = MODELS_DIR / "model.pkl"
+FEATS_PATH      = MODELS_DIR / "feature_names.json"
+METRICS_PATH    = MODELS_DIR / "metrics.json"
+CLASS_MAP_PATH  = MODELS_DIR / "class_map.json"
 THRESHOLDS_PATH = REPORTS_DIR / "thresholds.json"  # created by notebook Step 14
 
 # ----------------- Helpers -----------------
@@ -55,7 +60,11 @@ def load_artifacts():
     if not MODEL_PATH.exists():
         return None, None, None, None, None, [f"Missing model file at {MODEL_PATH}"]
 
-    pipe = load(MODEL_PATH)
+    # Robust load with clear error if versions differ
+    try:
+        pipe = load(MODEL_PATH)
+    except Exception as e:
+        return None, None, None, None, None, [f"Failed to load model.pkl: {e}"]
 
     # Feature names (preferred)
     feats_json = load_json(FEATS_PATH)
@@ -187,7 +196,7 @@ if load_warnings:
             st.write("•", msg)
 
 if pipe is None:
-    st.error("`models/model.pkl` not found. Train in the notebook and save artifacts first.")
+    st.error("`models/model.pkl` not found or failed to load. Train/save in the notebook and push to the repo.")
     st.stop()
 
 est = get_estimator(pipe)
@@ -244,7 +253,7 @@ with tab_single:
 
     cols = st.columns(3)
     values = {}
-    for i, f in enumerate(features): # type: ignore
+    for i, f in enumerate(features):  # type: ignore
         with cols[i % 3]:
             values[f] = st.number_input(
                 f,
@@ -322,11 +331,11 @@ with tab_reports:
 
     cols_r = st.columns(2)
     if cm.exists():
-        cols_r[0].image(str(cm), caption="Confusion Matrix (Test)", use_column_width=True)
+        cols_r[0].image(str(cm), caption="Confusion Matrix (Test)", use_container_width=True)
     if cmn.exists():
-        cols_r[1].image(str(cmn), caption="Confusion Matrix (Normalized)", use_column_width=True)
+        cols_r[1].image(str(cmn), caption="Confusion Matrix (Normalized)", use_container_width=True)
     if roc.exists():
-        st.image(str(roc), caption="ROC Curve", use_column_width=True)
+        st.image(str(roc), caption="ROC Curve", use_container_width=True)
     if cr_c.exists():
         try:
             cr_df = pd.read_csv(cr_c, index_col=0)
